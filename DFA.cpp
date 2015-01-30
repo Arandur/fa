@@ -10,23 +10,39 @@
 #include <algorithm>
 #include <functional>
 
-/**
- * Runs the DFA on str, returning true if it accepts.
- * 
- * @param  str The string.
- * @return     true if the DFA accepts str, else false.
- */
-bool DFA::operator () (const std::string& str) const {
+bool DFA::match(const char* first, const char* last) const {
 
   try {
 
-    state_type final_state = delta(initial_state, str);
+    state_type final_state = delta(initial_state, first, last);
 
     return std::binary_search(std::begin(final_states), std::end(final_states),
                               final_state);
   } catch (const NoTransitionException& e) {
 
     return false;
+  }
+}
+
+std::pair<const char*, const char*> DFA::findNext(const char* first,
+                                                      const char* last) const {
+
+  if (first == last) return {last, last};
+
+  state_type currState = initial_state;
+  const char* currIt = first;
+
+  try {
+
+    while (!std::binary_search( std::begin(final_states), std::end(final_states),
+                                currState))
+
+      currState = delta(currState, *currIt++);
+
+    return {first, currIt};
+  } catch (const NoTransitionException& e) {
+
+    return findNext(++first, last);
   }
 }
 
@@ -79,15 +95,12 @@ std::unique_ptr<FA> DFA::minimizeStates() const {
   )->makeDeterministic();
 }
 
-FA::state_type DFA::delta(const state_type& q, const std::string& str) const {
+FA::state_type DFA::delta(const state_type& q,  const char* first,
+                                                const char* last) const {
 
-  state_type currState = q;
+  if (first == last) return q;
 
-  for (const symbol_type& c : str)
-
-    currState = delta(currState, c);
-
-  return currState;
+  return delta(delta(q, *first), first + 1, last);
 }
 
 FA::state_type DFA::delta(const state_type& q, const symbol_type& a) const {

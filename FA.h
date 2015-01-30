@@ -19,7 +19,10 @@ public:
 
   FA(const FA&) = default;
 
-  virtual bool operator () (const std::string&) const = 0;
+  virtual bool match (const char*, const char*) const = 0;
+
+  virtual std::pair<const char*, const char*> findNext( const char*, 
+                                                            const char*) const = 0;
 
   static std::unique_ptr<FA> concatenate(std::unique_ptr<FA>, std::unique_ptr<FA>);
   static std::unique_ptr<FA> alternate  (std::unique_ptr<FA>, std::unique_ptr<FA>);

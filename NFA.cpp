@@ -1,6 +1,7 @@
 #include "NFA.h"
 
 #include "FABuilder.h"
+#include "FAExcept.h"
 
 #include <set>
 #include <map>
@@ -8,19 +9,36 @@
 #include <algorithm>
 #include <iterator>
 
-/**
- * Runs the NFA on str, returning true if it accepts.
- * 
- * @param  str The string.
- * @return     true if the NFA accepts str, else false.
- */
-bool NFA::operator () (const std::string& str) const {
+bool NFA::match (const char* first, const char* last) const {
 
-  std::set<state_type> end_states = delta({initial_state}, str);
+  std::set<state_type> end_states = delta({initial_state}, first, last);
 
   return std::find_first_of(std::begin(end_states), std::end(end_states),
                             std::begin(final_states), std::end(final_states)) !=
     std::end(end_states);
+}
+
+std::pair<const char*, const char*> NFA::findNext(const char* first,
+                                                      const char* last) const {
+
+  if (first == last) return {last, last};
+
+  std::set<state_type> currState = {initial_state};
+  const char* currIt = first;
+
+  try {
+
+    while ( std::find_first_of( std::begin(final_states), std::end(final_states),
+                                std::begin(currState),    std::end(currState)) !=
+            std::end(final_states))
+
+      currState = delta(currState, *currIt++);
+
+    return {first, currIt};
+  } catch (const NoTransitionException& e) {
+
+    return findNext(++first, last);
+  }
 }
 
 std::unique_ptr<FA> NFA::normalize() const {
@@ -83,17 +101,12 @@ std::unique_ptr<FA> NFA::makeDeterministic() const {
 }
 
 std::set<FA::state_type> NFA::delta(const std::set<state_type>& qs, 
-                                    const std::string& str) const {
+                                    const char* first,
+                                    const char* last) const {
+ 
+  if (first == last) return qs;
 
-  std::set<state_type> currStates = qs;
-
-  for (const symbol_type& a : str)
-
-    if ((currStates = delta(currStates, a)).empty())
-
-      return currStates;
-
-  return currStates;
+  return delta(delta(qs, *first), first + 1, last);
 }
 
 std::set<FA::state_type> NFA::delta(const std::set<state_type>& qs,

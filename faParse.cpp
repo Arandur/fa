@@ -152,7 +152,7 @@ std::unique_ptr<FA> parse(const std::vector<Token> tokens) {
 
   auto it = std::begin(tokens);
  
-  std::function<void (void)> expr = [&] () {
+  const std::function<void (void)> expr = [&] () {
 
     if (!(tokenSlice = popIfMatch(tokenStack, TokenType::CHAR)).empty()) {
 

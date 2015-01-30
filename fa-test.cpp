@@ -17,7 +17,7 @@ int main() {
     "abababb"
   }) {
 
-    printf(((*fa)(str) ? 
+    printf((fa->match(&*std::begin(str), &*std::end(str)) ? 
       "'%s' matches!\n" : 
       "'%s' doesn't match.\n"
       ), str.c_str());

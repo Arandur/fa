@@ -13,7 +13,10 @@ public:
 
   DFA(const DFA&) = default;
 
-  virtual bool operator () (const std::string&) const;
+  virtual bool match (const char*, const char*) const;
+
+  virtual std::pair<const char*, const char*> findNext( const char*, 
+                                                            const char*) const;
 
   friend class FABuilder;
   friend class NFA;
@@ -30,6 +33,6 @@ private:
           std::unique_ptr<FA> reverse()        const;
           std::unique_ptr<FA> minimizeStates() const;
 
-  state_type delta(const state_type&, const std::string&) const;
+  state_type delta(const state_type&, const char*, const char*) const;
   state_type delta(const state_type&, const symbol_type&) const;
 };

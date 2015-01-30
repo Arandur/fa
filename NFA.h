@@ -13,7 +13,10 @@ public:
 
   NFA(const NFA&) = default;
 
-  virtual bool operator () (const std::string&) const;
+  virtual bool match (const char*, const char*) const;
+
+  virtual std::pair<const char*, const char*> findNext( const char*, 
+                                                            const char*) const;
 
   friend class FABuilder;
   friend class DFA;
@@ -32,7 +35,7 @@ private:
           std::unique_ptr<FA> makeDeterministic() const;
 
   std::set<state_type>    delta(const std::set<state_type>&, 
-                                const std::string&) const;
+                                const char*, const char*) const;
   std::set<state_type>    delta(const std::set<state_type>&, 
                                 const symbol_type&) const;
   std::vector<state_type> epsilon_closure(const state_type&) const;
