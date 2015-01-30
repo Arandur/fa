@@ -27,51 +27,75 @@ struct Token {
     type(type),
     value(value) {}
 
+  Token(const Token& cToken) :
+    type(cToken.type),
+    value(cToken.value) {}
+
+  Token(Token&& mToken) :
+    type(mToken.type),
+    value(mToken.value) {}
+
+  Token& operator = (Token&& mToken) {
+
+    std::swap(*this, mToken);
+
+    return *this;
+  }
+
   const TokenType type;
   const std::string value;
 };
 
-int _stackTopMatches( const std::vector<Token>& tokenStack,
-                      const TokenType& type) {
+typename std::vector<Token>::iterator stackTopMatch(
+  std::vector<Token>& tokenStack,
+  const TokenType& type) {
 
   if (tokenStack.size() == 0)
 
-    return -1;
+    return std::end(tokenStack);
 
-  int index = tokenStack.size() - 1;
+  auto it = --std::end(tokenStack);
 
-  if (tokenStack[index].type == type)
+  if (it->type == type)
 
-    return index;
+    return it;
   else
 
-    return -1;
+    return std::end(tokenStack);
 }
 
 template <typename... Args>
-int _stackTopMatches(const std::vector<Token>& tokenStack,
-                              const TokenType& type,
+typename std::vector<Token>::iterator stackTopMatch(
+  std::vector<Token>& tokenStack,
+  const TokenType& type,
+  Args... args) {
+
+  auto it = stackTopMatch(tokenStack, args...);
+
+  if (it == std::end(tokenStack))
+
+    return it;
+
+  if ((--it)->type == type)
+
+    return it;
+  else
+
+    return std::end(tokenStack);
+}
+
+template <typename... Args>
+std::vector<Token> popIfMatch(std::vector<Token>& tokenStack,
                               Args... args) {
 
-  int index = _stackTopMatches(tokenStack, args...) - 1;
+  auto it = stackTopMatch(tokenStack, args...);
 
-  if (index < 0)
+  std::vector<Token> stackTop;
 
-    return -1;
+  std::copy(it, std::end(tokenStack), std::back_inserter(stackTop));
+  tokenStack.erase(it, std::end(tokenStack));
 
-  if (tokenStack[index].type == type)
-
-    return index;
-  else
-
-    return -1;
-}
-
-template <typename... Args>
-bool stackTopMatches( const std::vector<Token>& tokenStack,
-                      Args... args) {
-
-  return _stackTopMatches(tokenStack, args...) >= 0;
+  return stackTop;
 }
 
 std::vector<Token> lex(const std::string& regex) {
@@ -114,6 +138,7 @@ std::vector<Token> lex(const std::string& regex) {
 std::unique_ptr<FA> parse(const std::vector<Token> tokens) {
 
   std::vector<Token> tokenStack;
+  std::vector<Token> tokenSlice;
   std::vector<std::unique_ptr<FA>> faStack;
 
   auto fromChar = [] (const char& c) -> std::unique_ptr<FA> {
@@ -129,68 +154,73 @@ std::unique_ptr<FA> parse(const std::vector<Token> tokens) {
  
   std::function<void (void)> expr = [&] () {
 
-    if (stackTopMatches(tokenStack, TokenType::CHAR)) {
+    if (!(tokenSlice = popIfMatch(tokenStack, TokenType::CHAR)).empty()) {
 
-      Token t0 = tokenStack.back(); tokenStack.pop_back();
-      tokenStack.emplace_back(TokenType::EXPR, t0.value);
-      faStack.push_back(std::move(fromChar(t0.value.front())));
+      tokenStack.emplace_back(TokenType::EXPR, tokenSlice[0].value);
+      faStack.push_back(std::move(fromChar(tokenSlice[0].value.front())));
 
 #ifdef DEBUG
-      fprintf(stderr, "Reduce '%s'\n", t0.value.c_str());
+      fprintf(stderr, "Reduce '%s'\n", tokenSlice[0].value.c_str());
 #endif  // DEBUG
 
       expr();
-    } else if ( stackTopMatches(tokenStack, TokenType::EXPR, TokenType::EXPR) and
-                it->type != TokenType::STAR) {
+    } else if (!(tokenSlice = popIfMatch(tokenStack,  TokenType::EXPR, 
+                                                      TokenType::EXPR)).empty() 
+                and it->type != TokenType::STAR) {
 
-      Token t1 = tokenStack.back(); tokenStack.pop_back();
-      Token t0 = tokenStack.back(); tokenStack.pop_back();
-      tokenStack.emplace_back(TokenType::EXPR, t0.value + t1.value);
+      tokenStack.emplace_back(TokenType::EXPR,  tokenSlice[0].value + 
+                                                tokenSlice[1].value);
 
 #ifdef DEBUG
-      fprintf(stderr, "Reduce '%s' + '%s'\n", t0.value.c_str(), t1.value.c_str());
+      fprintf(stderr, "Reduce '%s' + '%s'\n", tokenSlice[0].value.c_str(), 
+                                              tokenSlice[1].value.c_str());
 #endif  // DEBUG
 
       std::unique_ptr<FA> fa1 = std::move(faStack.back()); faStack.pop_back();
       std::unique_ptr<FA> fa0 = std::move(faStack.back()); faStack.pop_back();
       faStack.push_back(std::move(FA::concatenate(std::move(fa0), std::move(fa1))));
-    } else if (stackTopMatches(tokenStack, TokenType::EXPR, TokenType::STAR)) {
+    } else if (!(tokenSlice = popIfMatch(tokenStack,  TokenType::EXPR, 
+                                                      TokenType::STAR)).empty()) {
 
-      Token t1 = tokenStack.back(); tokenStack.pop_back();
-      Token t0 = tokenStack.back(); tokenStack.pop_back();
-      tokenStack.emplace_back(TokenType::EXPR, t0.value + t1.value);
+      tokenStack.emplace_back(TokenType::EXPR,  tokenSlice[0].value + 
+                                                tokenSlice[1].value);
 
 #ifdef DEBUG
-      fprintf(stderr, "Reduce '%s' + '%s'\n", t0.value.c_str(), t1.value.c_str());
+      fprintf(stderr, "Reduce '%s' + '%s'\n", tokenSlice[0].value.c_str(), 
+                                              tokenSlice[1].value.c_str());
 #endif  // DEBUG
 
       std::unique_ptr<FA> fa = std::move(faStack.back()); faStack.pop_back();
       faStack.push_back(std::move(FA::repeat(std::move(fa))));
-    } else if (stackTopMatches(tokenStack,  TokenType::EXPR, TokenType::V_BAR,
-                                            TokenType::EXPR)) {
+    } else if (!(tokenSlice = popIfMatch(tokenStack,  TokenType::EXPR, 
+                                                      TokenType::V_BAR,
+                                                      TokenType::EXPR)).empty()) {
 
-      Token t2 = tokenStack.back(); tokenStack.pop_back();
-      Token t1 = tokenStack.back(); tokenStack.pop_back();
-      Token t0 = tokenStack.back(); tokenStack.pop_back();
-      tokenStack.emplace_back(TokenType::EXPR, t0.value + t1.value + t2.value);
+      tokenStack.emplace_back(TokenType::EXPR,  tokenSlice[0].value + 
+                                                tokenSlice[1].value + 
+                                                tokenSlice[2].value);
 
 #ifdef DEBUG
-      fprintf(stderr, "Reduce '%s' + '%s' + '%s'\n", t0.value.c_str(), t1.value.c_str(), t2.value.c_str());
+      fprintf(stderr, "Reduce '%s' + '%s' + '%s'\n",  tokenSlice[0].value.c_str(),
+                                                      tokenSlice[1].value.c_str(),
+                                                      tokenslice[2].value.c_str());
 #endif  // DEBUG
 
       std::unique_ptr<FA> fa1 = std::move(faStack.back()); faStack.pop_back();
       std::unique_ptr<FA> fa0 = std::move(faStack.back()); faStack.pop_back();
       faStack.push_back(std::move(FA::alternate(std::move(fa0), std::move(fa1))));
-    } else if (stackTopMatches(tokenStack,  TokenType::L_PAREN, TokenType::EXPR,
-                                            TokenType::R_PAREN)) {
+    } else if (!(tokenSlice = popIfMatch(tokenStack,  TokenType::L_PAREN, 
+                                                      TokenType::EXPR,
+                                                      TokenType::R_PAREN)).empty()) {
 
-      Token t2 = tokenStack.back(); tokenStack.pop_back();
-      Token t1 = tokenStack.back(); tokenStack.pop_back();
-      Token t0 = tokenStack.back(); tokenStack.pop_back();
-      tokenStack.emplace_back(TokenType::EXPR, t0.value + t1.value + t2.value);
+      tokenStack.emplace_back(TokenType::EXPR,  tokenSlice[0].value + 
+                                                tokenSlice[1].value + 
+                                                tokenSlice[2].value);
 
 #ifdef DEBUG
-      fprintf(stderr, "Reduce '%s' + '%s' + '%s'\n", t0.value.c_str(), t1.value.c_str(), t2.value.c_str());
+      fprintf(stderr, "Reduce '%s' + '%s' + '%s'\n",  tokenSlice[0].value.c_str(), 
+                                                      tokenSlice[1].value.c_str(), 
+                                                      tokenSlice[2].value.c_str());
 #endif  // DEBUG
     } else {
 
