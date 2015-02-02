@@ -13,10 +13,16 @@ public:
 
   NFA(const NFA&) = default;
 
-  virtual bool match (const char*, const char*) const;
+  virtual bool match (const char*, const size_t&) const;
 
-  virtual std::pair<const char*, const char*> findNext( const char*, 
-                                                            const char*) const;
+  virtual bool match( std::string::const_iterator,
+                      std::string::const_iterator) const;
+
+  virtual std::pair<const char*, const size_t> findNext(const char*, 
+                                                        const size_t&) const;
+
+  virtual std::pair<std::string::const_iterator, std::string::const_iterator>
+    findNext(std::string::const_iterator, std::string::const_iterator) const;
 
   friend class FABuilder;
   friend class DFA;
@@ -34,8 +40,9 @@ private:
 
           std::unique_ptr<FA> makeDeterministic() const;
 
+  template <typename InputIterator>
   std::set<state_type>    delta(const std::set<state_type>&, 
-                                const char*, const char*) const;
+                                InputIterator, InputIterator) const;
   std::set<state_type>    delta(const std::set<state_type>&, 
                                 const symbol_type&) const;
   std::vector<state_type> epsilon_closure(const state_type&) const;

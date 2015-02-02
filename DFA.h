@@ -13,10 +13,16 @@ public:
 
   DFA(const DFA&) = default;
 
-  virtual bool match (const char*, const char*) const;
+  virtual bool match (const char*, const size_t&) const;
 
-  virtual std::pair<const char*, const char*> findNext( const char*, 
-                                                            const char*) const;
+  virtual bool match( std::string::const_iterator,
+                      std::string::const_iterator) const;
+
+  virtual std::pair<const char*, const size_t> findNext(const char*, 
+                                                        const size_t&) const;
+
+  virtual std::pair<std::string::const_iterator, std::string::const_iterator>
+    findNext(std::string::const_iterator, std::string::const_iterator) const;
 
   friend class FABuilder;
   friend class NFA;
@@ -33,6 +39,7 @@ private:
           std::unique_ptr<FA> reverse()        const;
           std::unique_ptr<FA> minimizeStates() const;
 
-  state_type delta(const state_type&, const char*, const char*) const;
+  template <typename InputIterator>
+  state_type delta(const state_type&, InputIterator, InputIterator) const;
   state_type delta(const state_type&, const symbol_type&) const;
 };

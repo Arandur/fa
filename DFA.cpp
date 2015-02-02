@@ -10,7 +10,22 @@
 #include <algorithm>
 #include <functional>
 
-bool DFA::match(const char* first, const char* last) const {
+bool DFA::match(const char* arr, const size_t& n) const {
+
+  try {
+
+    state_type final_state = delta(initial_state, arr, arr + n);
+
+    return std::binary_search(std::begin(final_states), std::end(final_states),
+                              final_state);
+  } catch (const NoTransitionException& e) {
+
+    return false;
+  }
+}
+
+bool DFA::match(std::string::const_iterator first,
+                std::string::const_iterator last) const {
 
   try {
 
@@ -24,13 +39,36 @@ bool DFA::match(const char* first, const char* last) const {
   }
 }
 
-std::pair<const char*, const char*> DFA::findNext(const char* first,
-                                                      const char* last) const {
+std::pair<const char*, const size_t> DFA::findNext( const char* arr,
+                                                    const size_t& n) const {
+
+  if (n == 0) return {arr + n, n};
+
+  state_type currState = initial_state;
+  size_t endPos = 0;
+
+  try {
+
+    while (!std::binary_search( std::begin(final_states), std::end(final_states),
+                                currState))
+
+      currState = delta(currState, arr[endPos++]);
+
+    return {arr, endPos};
+  } catch (const NoTransitionException& e) {
+
+    return findNext(arr + 1, n - 1);
+  }
+}
+
+std::pair<std::string::const_iterator, std::string::const_iterator>
+  DFA::findNext(std::string::const_iterator first,
+                std::string::const_iterator last) const {
 
   if (first == last) return {last, last};
 
   state_type currState = initial_state;
-  const char* currIt = first;
+  std::string::const_iterator currIt = first;
 
   try {
 
@@ -95,8 +133,9 @@ std::unique_ptr<FA> DFA::minimizeStates() const {
   )->makeDeterministic();
 }
 
-FA::state_type DFA::delta(const state_type& q,  const char* first,
-                                                const char* last) const {
+template <typename InputIterator>
+FA::state_type DFA::delta(const state_type& q,
+                          InputIterator first, InputIterator last) const {
 
   if (first == last) return q;
 

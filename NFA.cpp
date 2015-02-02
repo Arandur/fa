@@ -9,7 +9,17 @@
 #include <algorithm>
 #include <iterator>
 
-bool NFA::match (const char* first, const char* last) const {
+bool NFA::match(const char* arr, const size_t& n) const {
+
+  std::set<state_type> end_states = delta({initial_state}, arr, arr + n);
+
+  return std::find_first_of(std::begin(end_states), std::end(end_states),
+                            std::begin(final_states), std::end(final_states)) !=
+    std::end(end_states);
+}
+
+bool NFA::match(std::string::const_iterator first,
+                std::string::const_iterator last) const {
 
   std::set<state_type> end_states = delta({initial_state}, first, last);
 
@@ -18,13 +28,40 @@ bool NFA::match (const char* first, const char* last) const {
     std::end(end_states);
 }
 
-std::pair<const char*, const char*> NFA::findNext(const char* first,
-                                                      const char* last) const {
+std::pair<const char*, const size_t> NFA::findNext( const char* arr,
+                                                    const size_t& n) const {
+
+  if (n == 0) return {arr + n, 0};
+
+  std::set<state_type> currState = {initial_state};
+  size_t endPos = 0;
+
+  try {
+
+    while ( std::find_first_of( std::begin(final_states), std::end(final_states),
+                                std::begin(currState),    std::end(currState)) !=
+            std::end(final_states))
+
+      currState = delta(currState, arr[endPos++]);
+
+    return {arr, endPos};
+  } catch (const NoTransitionException& e) {
+
+    return findNext(arr + 1, n - 1);
+  }
+
+  // Unnecessary, but I guess the compiler doesn't know that.
+  return {arr + n, 0};
+}
+
+std::pair<std::string::const_iterator, std::string::const_iterator>
+  NFA::findNext(std::string::const_iterator first,
+                std::string::const_iterator last) const {
 
   if (first == last) return {last, last};
 
   std::set<state_type> currState = {initial_state};
-  const char* currIt = first;
+  std::string::const_iterator currIt = first;
 
   try {
 
@@ -39,6 +76,9 @@ std::pair<const char*, const char*> NFA::findNext(const char* first,
 
     return findNext(++first, last);
   }
+
+  // Unnecessary, but I guess the compiler doesn't know that.
+  return {last, last};
 }
 
 std::unique_ptr<FA> NFA::normalize() const {
@@ -100,9 +140,10 @@ std::unique_ptr<FA> NFA::makeDeterministic() const {
   return faBuilder.build();
 }
 
+template <typename InputIterator>
 std::set<FA::state_type> NFA::delta(const std::set<state_type>& qs, 
-                                    const char* first,
-                                    const char* last) const {
+                                    InputIterator first,
+                                    InputIterator last) const {
  
   if (first == last) return qs;
 
